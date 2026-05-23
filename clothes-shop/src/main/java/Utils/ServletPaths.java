@@ -4,6 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+/**
+ * Đường dẫn tương đối context — không hardcode /MomAndBaby.
+ */
 public final class ServletPaths {
 
     private ServletPaths() {
@@ -17,6 +20,7 @@ public final class ServletPaths {
         return cp == null ? "" : cp;
     }
 
+    /** Ví dụ: /product/detail/12 */
     public static String relative(HttpServletRequest request) {
         String uri = request.getRequestURI();
         String cp = ctx(request);
@@ -49,7 +53,7 @@ public final class ServletPaths {
 
     public static void redirectHome(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        redirect(request, response, "/");
+        redirect(request, response, "/home");
     }
 
     public static boolean relativeEquals(HttpServletRequest request, String path) {
@@ -82,6 +86,43 @@ public final class ServletPaths {
         return rel.equals(suffix) || rel.equals(suffix + "/") || rel.endsWith(suffix);
     }
 
+    /**
+     * Phần path sau tiền tố prefix (relative), không gồm query.
+     * Ví dụ prefix "/admin/account/update/", URI .../account/update/5 → "5".
+     */
+    public static String segmentAfter(HttpServletRequest request, String prefix) {
+        if (prefix == null) {
+            return "";
+        }
+        if (!prefix.startsWith("/")) {
+            prefix = "/" + prefix;
+        }
+        String rel = relative(request);
+        if (rel.length() > 1 && rel.endsWith("/")) {
+            rel = rel.substring(0, rel.length() - 1);
+        }
+        String pfx = prefix.endsWith("/") ? prefix : prefix + "/";
+        if (!rel.startsWith(pfx)) {
+            return "";
+        }
+        String rest = rel.substring(pfx.length());
+        int q = rest.indexOf('?');
+        if (q >= 0) {
+            rest = rest.substring(0, q);
+        }
+        return rest;
+    }
+
+    /** Parse id int sau prefix; không hợp lệ trả {@code -1} (Validation#getInt). */
+    public static int idAfter(HttpServletRequest request, String prefix) {
+        String seg = segmentAfter(request, prefix);
+        if (seg == null || seg.isEmpty()) {
+            return -1;
+        }
+        return new Validation().getInt(seg);
+    }
+
+    /** Lấy segment cuối sau dấu / (vd. detail/5 → 5). */
     public static String lastSegment(HttpServletRequest request) {
         String rel = relative(request);
         if (rel.endsWith("/")) {
@@ -91,6 +132,9 @@ public final class ServletPaths {
         return i >= 0 ? rel.substring(i + 1) : rel;
     }
 
+    /**
+     * Parse số trang từ .../page-N (trả -1 nếu không hợp lệ).
+     */
     public static int parsePageSuffix(HttpServletRequest request, String pagePrefix) {
         String seg = lastSegment(request);
         if (seg == null || !seg.startsWith(pagePrefix)) {
