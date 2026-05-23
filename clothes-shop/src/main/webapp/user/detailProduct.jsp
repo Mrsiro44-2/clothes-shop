@@ -63,7 +63,7 @@
                     <c:if test="${brand != null}">
                         <a href="${ctx}/product?type=brand&id=${brand.ID}">${brand.name}</a>
                     </c:if>
-                    <c:if test="${brand == null}">Mom &amp; Baby</c:if>
+                    <c:if test="${brand == null}">Clothing shop</c:if>
                 </p>
                 <h1 class="mb-pd-title">${product.name}</h1>
 
