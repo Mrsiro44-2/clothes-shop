@@ -3,12 +3,14 @@
 <%@taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions"%>
 <jsp:useBean id="currency" class="Utils.CurrencyConverter"></jsp:useBean>
 <jsp:useBean id="getDao" class="Utils.GetDAO"></jsp:useBean>
+<jsp:useBean id="getCartLib" class="Utils.CartLib"></jsp:useBean>
+<jsp:useBean id="wishlistLib" class="Utils.WishlistLib"></jsp:useBean>
 <jsp:useBean id="imgUrl" class="Utils.ImageUrl" scope="application"></jsp:useBean>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <c:set var="navUri" value="${pageContext.request.requestURI}"/>
 <c:set var="navRel" value="${fn:replace(navUri, ctx, '')}"/>
 <c:if test="${empty navRel}"><c:set var="navRel" value="/"/></c:if>
-<c:set var="navHome" value="${navRel == '/' || navRel == '/index.jsp'}"/>
+<c:set var="navHome" value="${navRel == '/' || navRel == '/home' || navRel == '/index.jsp'}"/>
 <c:set var="navShop" value="${fn:indexOf(navRel, '/product') == 0 || fn:indexOf(navRel, '/filter') == 0}"/>
 <c:set var="navBlog" value="${fn:indexOf(navRel, '/blog') == 0}"/>
 <c:set var="navContact" value="${fn:indexOf(navRel, '/contact') == 0}"/>
@@ -23,7 +25,7 @@
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
 
-            <title>Clothes shop</title>
+            <title>Mom &amp; Baby</title>
 
             <!-- Google font -->
             <link
@@ -75,8 +77,8 @@
                         <div class="row mb-header-row">
                             <div class="col-md-3 col-sm-4">
                                 <div class="header-logo">
-                                    <a href="${ctx}/" class="logo">
-                                        <img src="./user/img/logo_nen.png" alt="LA">
+                                    <a href="${ctx}/home" class="logo">
+                                        <img src="./user/img/logo_nen.png" alt="Mom &amp; Baby">
                                     </a>
                                 </div>
                             </div>
@@ -84,7 +86,7 @@
                                 <nav id="navigation">
                                     <div id="responsive-nav">
                                         <ul class="main-nav nav navbar-nav">
-                                            <li class="${navHome ? 'active' : ''}"><a href="${ctx}/">Trang chủ</a></li>
+                                            <li class="${navHome ? 'active' : ''}"><a href="${ctx}/home">Trang chủ</a></li>
                                             <li class="${navShop ? 'active' : ''}"><a href="${ctx}/product">Cửa hàng</a></li>
                                             <li class="${navBlog ? 'active' : ''}"><a href="${ctx}/blog">Blog</a></li>
                                             <li class="${navContact ? 'active' : ''}"><a href="${ctx}/contact">Liên hệ</a></li>
@@ -100,11 +102,14 @@
                                 <div>
                                     <a href="${pageContext.request.contextPath}/wishlist" title="Yêu thích">
                                         <i class="fa fa-heart-o"></i>
+                                        <c:if test="${userLogin != null}">
+                                            <div class="qty">${wishlistLib.count(userLogin.ID)}</div>
+                                        </c:if>
                                     </a>
                                 </div>
                                 <!-- /Wishlist -->
                                 <c:if test="${userLogin != null}">
-                                <c:set var="carts" value="" />
+                                <c:set var="carts" value="${getCartLib.getAllCart(userLogin.ID)}" />
                                 </c:if>
                                 <!-- Cart -->
                                 <div class="dropdown">
