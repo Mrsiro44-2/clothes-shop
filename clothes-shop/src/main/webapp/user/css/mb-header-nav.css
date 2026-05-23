@@ -1,0 +1,88 @@
+/* Header — layout 3 cột (logo | menu | icon), không có search */
+.mb-header-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mb-header-nav-col {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#navigation .main-nav,
+#responsive-nav .main-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    float: none;
+    margin: 0 auto;
+}
+
+#navigation .main-nav > li,
+#responsive-nav .main-nav > li {
+    float: none;
+    flex: 0 0 auto;
+}
+
+#navigation .main-nav > li + li,
+#responsive-nav .main-nav > li + li {
+    margin-left: 22px;
+}
+
+#navigation .main-nav > li > a,
+#responsive-nav .main-nav > li > a {
+    white-space: nowrap;
+    padding: 20px 2px;
+    font-size: 14px;
+}
+
+#navigation .main-nav > li.active > a,
+#responsive-nav .main-nav > li.active > a {
+    color: var(--mb-primary, #DB4444);
+}
+
+#navigation .main-nav > li.active > a:after,
+#responsive-nav .main-nav > li.active > a:after {
+    background-color: var(--mb-primary, #DB4444);
+    width: 100%;
+}
+
+#header .header-ctn {
+    float: right;
+}
+
+#top-header .header-links p {
+    margin: 0;
+    text-align: center;
+}
+
+@media (max-width: 1199px) {
+    #navigation .main-nav > li + li,
+    #responsive-nav .main-nav > li + li {
+        margin-left: 14px;
+    }
+
+    #navigation .main-nav > li > a,
+    #responsive-nav .main-nav > li > a {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 991px) {
+    .mb-header-nav-col {
+        order: 3;
+        width: 100%;
+        flex: 0 0 100%;
+        max-width: 100%;
+        padding-top: 8px;
+    }
+
+    #header .header-ctn {
+        float: none;
+        text-align: center;
+        padding-top: 10px;
+    }
+}

@@ -1,0 +1,31 @@
+.mb-form-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(255, 255, 255, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mb-form-loading-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 36px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    text-align: center;
+    min-width: 200px;
+}
+
+.mb-form-loading-box .fa-spinner {
+    font-size: 32px;
+    color: #DB4444;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.mb-form-loading-box span {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111;
+}

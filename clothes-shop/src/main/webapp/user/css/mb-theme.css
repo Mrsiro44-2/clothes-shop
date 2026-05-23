@@ -1,0 +1,8 @@
+/* Mom & Baby — màu chủ đạo #DB4444 */
+:root {
+    --mb-primary: #DB4444;
+    --mb-primary-dark: #c41e3a;
+    --mb-primary-hover: #b83333;
+    --mb-primary-light: #fff0f0;
+    --mb-primary-muted: #fce8e8;
+}

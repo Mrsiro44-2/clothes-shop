@@ -1,0 +1,31 @@
+.mb-variant-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #e4e7ed;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.mb-variant-swatch.active {
+    border-color: #d10024;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px #d10024;
+}
+
+.mb-variant-size-select {
+    min-width: 120px;
+    height: 36px;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    padding: 4px 10px;
+}
+
+#mb-no-variant-msg {
+    display: none;
+    color: #d10024;
+    margin: 12px 0;
+    font-weight: 600;
+}

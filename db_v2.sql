@@ -45,7 +45,6 @@ IF OBJECT_ID(N'dbo.Product', N'U') IS NOT NULL DROP TABLE dbo.Product;
 IF OBJECT_ID(N'dbo.ColorOption', N'U') IS NOT NULL DROP TABLE dbo.ColorOption;
 IF OBJECT_ID(N'dbo.SizeOption', N'U') IS NOT NULL DROP TABLE dbo.SizeOption;
 IF OBJECT_ID(N'dbo.Voucher', N'U') IS NOT NULL DROP TABLE dbo.Voucher;
-IF OBJECT_ID(N'dbo.Banner', N'U') IS NOT NULL DROP TABLE dbo.Banner;
 IF OBJECT_ID(N'dbo.Category', N'U') IS NOT NULL DROP TABLE dbo.Category;
 IF OBJECT_ID(N'dbo.Brand', N'U') IS NOT NULL DROP TABLE dbo.Brand;
 IF OBJECT_ID(N'dbo.Producer', N'U') IS NOT NULL DROP TABLE dbo.Producer;
@@ -102,10 +101,21 @@ CREATE TABLE dbo.Brand (
     status      INT NOT NULL DEFAULT 1
 );
 
+/* Nhóm size: quần áo, giày, one-size — Category trỏ sizeGroupID để lọc khi nhập variant */
+CREATE TABLE dbo.SizeGroup (
+    ID          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    code        NVARCHAR(50) NOT NULL,
+    name        NVARCHAR(100) NOT NULL,
+    sortOrder   INT NOT NULL DEFAULT 0,
+    status      INT NOT NULL DEFAULT 1,
+    CONSTRAINT UX_SizeGroup_code UNIQUE (code)
+);
+
 CREATE TABLE dbo.Category (
     ID          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     name        NVARCHAR(200) NOT NULL,
     slug        NVARCHAR(220) NULL /* dùng cho URL đẹp; có thể unique sau khi seed */,
+    sizeGroupID INT NOT NULL FOREIGN KEY REFERENCES dbo.SizeGroup(ID),
     datePost    DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
     dateUpdate  DATETIME2(3) NULL,
     status      INT NOT NULL DEFAULT 1
@@ -113,16 +123,13 @@ CREATE TABLE dbo.Category (
 
 CREATE INDEX IX_Category_slug ON dbo.Category(slug) WHERE slug IS NOT NULL;
 
-/*
-  Danh mục size/màu CHUNG cho shop (có thể mở rộng thêm SizeOption.categoryID nếu sau
-  này mỗi ngành hàng có bảng size khác nhau).
-*/
 CREATE TABLE dbo.SizeOption (
     ID          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     code        NVARCHAR(50) NULL /* ví dụ: S, M, L, XL */,
     label       NVARCHAR(100) NOT NULL /* hiển thị */,
     sortOrder   INT NOT NULL DEFAULT 0,
-    status      INT NOT NULL DEFAULT 1
+    status      INT NOT NULL DEFAULT 1,
+    sizeGroupID INT NOT NULL FOREIGN KEY REFERENCES dbo.SizeGroup(ID)
 );
 
 CREATE TABLE dbo.ColorOption (
@@ -171,7 +178,6 @@ CREATE TABLE dbo.ProductVariant (
     oldPrice        DECIMAL(18,2) NOT NULL DEFAULT 0,
     newPrice        DECIMAL(18,2) NOT NULL,
     quantity        INT NOT NULL DEFAULT 0,
-    sold            INT NOT NULL DEFAULT 0,
     variantImg      NVARCHAR(500) NULL /* ảnh đại diện riêng cho màu/size */,
     weightGrams     INT NULL,
     isDefault       BIT NOT NULL DEFAULT 0,
@@ -180,7 +186,6 @@ CREATE TABLE dbo.ProductVariant (
     dateUpdated     DATETIME2(3) NULL,
     CONSTRAINT UX_ProductVariant_sku UNIQUE (sku),
     CONSTRAINT CK_ProductVariant_qty CHECK (quantity >= 0),
-    CONSTRAINT CK_ProductVariant_sold CHECK (sold >= 0),
     CONSTRAINT CK_ProductVariant_price CHECK (newPrice >= 0 AND oldPrice >= 0)
 );
 
@@ -213,26 +218,30 @@ CREATE TABLE dbo.Feedback (
 
 CREATE INDEX IX_Feedback_product ON dbo.Feedback(productId);
 
-CREATE TABLE dbo.Banner (
-    ID          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    img         NVARCHAR(500) NOT NULL,
-    name        NVARCHAR(200) NOT NULL,
-    datePost    DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-    dateUpdate  DATETIME2(3) NULL,
-    status      INT NOT NULL DEFAULT 1
-);
-
+/*
+  Voucher:
+  - discountType: 0 = giảm số tiền cố định (value = VND), 1 = giảm % (value = 0–100)
+  - minOrderAmount: đơn tối thiểu để áp dụng
+  - maxDiscount: trần giảm khi discountType = 1 (nullable)
+  - usageLimit: số lần dùng tối đa toàn hệ thống (NULL = không giới hạn)
+  - used: đã dùng (tăng khi Bill checkout thành công)
+*/
 CREATE TABLE dbo.Voucher (
-    ID          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    name        NVARCHAR(200) NOT NULL,
-    code        NVARCHAR(80) NOT NULL,
-    value       DECIMAL(18,2) NOT NULL,
-    start       DATE NOT NULL,
-    [end]       DATE NOT NULL,
-    status      INT NOT NULL DEFAULT 1,
-    [limit]     DECIMAL(18,2) NULL /* giới hạn giảm / đơn — tuỳ nghiệp vụ */,
-    used        INT NOT NULL DEFAULT 0,
-    CONSTRAINT UX_Voucher_code UNIQUE (code)
+    ID              INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    name            NVARCHAR(200) NOT NULL,
+    code            NVARCHAR(80) NOT NULL,
+    discountType    INT NOT NULL DEFAULT 0,
+    value           DECIMAL(18,2) NOT NULL,
+    minOrderAmount  DECIMAL(18,2) NOT NULL DEFAULT 0,
+    maxDiscount     DECIMAL(18,2) NULL,
+    usageLimit      INT NULL,
+    used            INT NOT NULL DEFAULT 0,
+    start           DATE NOT NULL,
+    [end]           DATE NOT NULL,
+    status          INT NOT NULL DEFAULT 1,
+    CONSTRAINT UX_Voucher_code UNIQUE (code),
+    CONSTRAINT CK_Voucher_discountType CHECK (discountType IN (0, 1)),
+    CONSTRAINT CK_Voucher_used CHECK (used >= 0)
 );
 
 /* ============================ BLOG / CONTENT ============================ */
@@ -326,19 +335,23 @@ CREATE INDEX IX_BlogComment_parent ON dbo.BlogComment(parentCommentID);
 /* ============================ ORDERING ============================ */
 
 CREATE TABLE dbo.Bill (
-    id              INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    customerID      INT NULL FOREIGN KEY REFERENCES dbo.[Account](ID) /* NULL = khách vãng lai */,
-    email           NVARCHAR(200) NOT NULL,
-    customerName    NVARCHAR(200) NOT NULL,
-    phone           NVARCHAR(50) NOT NULL,
-    address         NVARCHAR(500) NOT NULL,
-    detailAddress   NVARCHAR(500) NULL,
-    total           DECIMAL(18,2) NOT NULL,
-    status          INT NOT NULL DEFAULT 0 /* tuỳ app: 0 chờ, 1 đang giao... */,
-    payment         INT NOT NULL DEFAULT 0,
-    dateOrder       DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-    dateUpdate      DATETIME2(3) NULL,
-    transactionCode NVARCHAR(120) NULL
+    id                  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    customerID          INT NULL FOREIGN KEY REFERENCES dbo.[Account](ID) /* NULL = khách vãng lai */,
+    email               NVARCHAR(200) NOT NULL,
+    customerName        NVARCHAR(200) NOT NULL,
+    phone               NVARCHAR(50) NOT NULL,
+    address             NVARCHAR(500) NOT NULL,
+    detailAddress       NVARCHAR(500) NULL,
+    subtotal            DECIMAL(18,2) NOT NULL DEFAULT 0 /* tổng trước giảm */,
+    discountAmount      DECIMAL(18,2) NOT NULL DEFAULT 0,
+    voucherID           INT NULL FOREIGN KEY REFERENCES dbo.Voucher(ID),
+    voucherCodeSnapshot NVARCHAR(80) NULL,
+    total               DECIMAL(18,2) NOT NULL /* sau giảm */,
+    status              INT NOT NULL DEFAULT 0 /* tuỳ app: 0 chờ, 1 đang giao... */,
+    payment             INT NOT NULL DEFAULT 0,
+    dateOrder           DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
+    dateUpdate          DATETIME2(3) NULL,
+    transactionCode     NVARCHAR(120) NULL
 );
 
 CREATE INDEX IX_Bill_customer ON dbo.Bill(customerID);
@@ -383,6 +396,17 @@ CREATE TABLE dbo.Cart (
 
 CREATE INDEX IX_Cart_account ON dbo.Cart(accountID);
 
+CREATE TABLE dbo.PasswordResetToken (
+    ID          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    accountID   INT NOT NULL FOREIGN KEY REFERENCES dbo.[Account](ID) ON DELETE CASCADE,
+    tokenHash   NVARCHAR(128) NOT NULL,
+    expiresAt   DATETIME2(3) NOT NULL,
+    usedAt      DATETIME2(3) NULL,
+    createdAt   DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
+);
+CREATE UNIQUE INDEX UX_PasswordResetToken_hash ON dbo.PasswordResetToken(tokenHash);
+CREATE INDEX IX_PasswordResetToken_account ON dbo.PasswordResetToken(accountID);
+
 CREATE TABLE dbo.Wishlist (
     ID                  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     accountID           INT NOT NULL FOREIGN KEY REFERENCES dbo.[Account](ID) ON DELETE CASCADE,
@@ -395,14 +419,30 @@ GO
 
 /* ============================ SEED SIZE / COLOR (ví dụ) ============================ */
 
+INSERT INTO dbo.SizeGroup (code, name, sortOrder, status) VALUES
+ (N'CLOTHING', N'Quần áo (S/M/L...)', 10, 1),
+ (N'SHOES',   N'Giày dép (số size)', 20, 1),
+ (N'ONESIZE', N'Phụ kiện / một size', 30, 1);
+
+DECLARE @sgClothing INT = (SELECT ID FROM dbo.SizeGroup WHERE code = N'CLOTHING');
+DECLARE @sgShoes INT = (SELECT ID FROM dbo.SizeGroup WHERE code = N'SHOES');
+DECLARE @sgOnesize INT = (SELECT ID FROM dbo.SizeGroup WHERE code = N'ONESIZE');
+
 SET IDENTITY_INSERT dbo.SizeOption ON;
-INSERT INTO dbo.SizeOption (ID, code, label, sortOrder, status) VALUES
- (1, N'FREE', N'Free size', 0, 1),
- (2, N'NB',   N'Newborn',   10, 1),
- (3, N'S',    N'S',          20, 1),
- (4, N'M',    N'M',          30, 1),
- (5, N'L',    N'L',          40, 1),
- (6, N'XL',   N'XL',         50, 1);
+INSERT INTO dbo.SizeOption (ID, code, label, sortOrder, status, sizeGroupID) VALUES
+ (1, N'FREE', N'Free size', 0, 1, @sgClothing),
+ (2, N'NB',   N'Newborn',   10, 1, @sgClothing),
+ (3, N'S',    N'S',          20, 1, @sgClothing),
+ (4, N'M',    N'M',          30, 1, @sgClothing),
+ (5, N'L',    N'L',          40, 1, @sgClothing),
+ (6, N'XL',   N'XL',         50, 1, @sgClothing),
+ (7, N'S16',  N'16',         10, 1, @sgShoes),
+ (8, N'S17',  N'17',         20, 1, @sgShoes),
+ (9, N'S18',  N'18',         30, 1, @sgShoes),
+ (10, N'S19', N'19',         40, 1, @sgShoes),
+ (11, N'S20', N'20',         50, 1, @sgShoes),
+ (12, N'S21', N'21',         60, 1, @sgShoes),
+ (13, N'OS',  N'One size',   0, 1, @sgOnesize);
 SET IDENTITY_INSERT dbo.SizeOption OFF;
 
 SET IDENTITY_INSERT dbo.ColorOption ON;
@@ -428,8 +468,7 @@ SELECT
     p.ID AS productID,
     MIN(v.newPrice) AS minPrice,
     MAX(v.newPrice) AS maxPrice,
-    SUM(v.quantity) AS totalQuantity,
-    SUM(v.sold)     AS totalSold
+    SUM(v.quantity) AS totalQuantity
 FROM dbo.Product p
 JOIN dbo.ProductVariant v ON v.productID = p.ID AND v.status = 1
 GROUP BY p.ID;
@@ -474,7 +513,7 @@ GO
   -- Với mỗi dòng cũ trong Size (productID, name, oldPrice, newPrice, quantity):
   -- 1) Tạo hoặc tìm SizeOption theo name -> sizeOptionID
   -- 2) Dùng ColorOption ID = 1 ("Mặc định") cho SP chỉ có size như cũ
-  -- 3) INSERT ProductVariant (productID, sizeOptionID, colorOptionID, sku, oldPrice, newPrice, quantity, sold)
+  -- 3) INSERT ProductVariant (productID, sizeOptionID, colorOptionID, sku, oldPrice, newPrice, quantity)
 
   Sau đó:
   - Cart code Java: đổi productID -> productVariantID (và logic chọn variant trên UI).
